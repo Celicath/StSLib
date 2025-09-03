@@ -9,13 +9,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 public class SelectCardsInHandAction extends AbstractGameAction {
     private Predicate<AbstractCard> predicate;
     private Consumer<List<AbstractCard>> callback;
     private String text;
-    private boolean anyNumber, canPickZero;
+    private boolean anyNumber, canPickZero, forTransform, forUpgrade;
     private ArrayList<AbstractCard> hand;
     private ArrayList<AbstractCard> tempHand = new ArrayList<>();
 
@@ -25,6 +24,8 @@ public class SelectCardsInHandAction extends AbstractGameAction {
     * @param anyNumber - whether player has to select exact number of cards or any number up to.
     * false for exact number
     * @param canPickZero - whether player can skip selection by picking zero cards.
+    * @param forTransform - Shows the transform preview. Only works when amount == 1.
+    * @param forUpgrade - Shows the upgrade preivew. Only works when amount == 1.
     * @param cardFilter - filter that will be applied to cards in hand.
     * Example: if you want to display only skills, it would be c -> c.type == CardType.SKILL
     * If you don't need the filter, set it as c -> true
@@ -38,15 +39,21 @@ public class SelectCardsInHandAction extends AbstractGameAction {
     * if there's no callback the action will not trigger simply because you told player to "select cards to do nothing with them"
     **/
 
-    public SelectCardsInHandAction(int amount, String textForSelect, boolean anyNumber, boolean canPickZero, Predicate<AbstractCard> cardFilter, Consumer<List<AbstractCard>> callback) {
+    public SelectCardsInHandAction(int amount, String textForSelect, boolean anyNumber, boolean canPickZero, boolean forTransform, boolean forUpgrade, Predicate<AbstractCard> cardFilter, Consumer<List<AbstractCard>> callback) {
         this.amount = amount;
         this.duration = this.startDuration = Settings.ACTION_DUR_XFAST;
         text = textForSelect;
         this.anyNumber = anyNumber;
         this.canPickZero = canPickZero;
+        this.forTransform = forTransform;
+        this.forUpgrade = forUpgrade;
         this.predicate = cardFilter;
         this.callback = callback;
         this.hand = AbstractDungeon.player.hand.group;
+    }
+
+    public SelectCardsInHandAction(int amount, String textForSelect, boolean anyNumber, boolean canPickZero, Predicate<AbstractCard> cardFilter, Consumer<List<AbstractCard>> callback) {
+		this(amount, textForSelect, anyNumber, canPickZero, false, false, cardFilter, callback);
     }
 
     public SelectCardsInHandAction(int amount, String textForSelect, Predicate<AbstractCard> cardFilter, Consumer<List<AbstractCard>> callback) {
@@ -76,7 +83,7 @@ public class SelectCardsInHandAction extends AbstractGameAction {
 
             hand.removeIf(c -> !predicate.test(c) && tempHand.add(c));
 
-            if ((hand.size() == 0)) {
+            if (hand.isEmpty()) {
                 finish();
                 return;
             }
@@ -90,7 +97,10 @@ public class SelectCardsInHandAction extends AbstractGameAction {
                 return;
             }
 
-            AbstractDungeon.handCardSelectScreen.open(text, amount, anyNumber, canPickZero);
+            // forTransform and forUpgrade only works properly when amount == 1
+            boolean effectiveForTransform = forTransform && amount == 1;
+            boolean effectiveForUpgrade = forUpgrade && amount == 1;
+            AbstractDungeon.handCardSelectScreen.open(text, amount, anyNumber, canPickZero, effectiveForTransform, effectiveForUpgrade);
             tickDuration();
             return;
         }
