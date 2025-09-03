@@ -1,5 +1,6 @@
 package com.evacipated.cardcrawl.mod.stslib.actions.common;
 
+import com.evacipated.cardcrawl.mod.stslib.patches.HandCardSelectCustomPreviewPatch;
 import com.megacrit.cardcrawl.actions.AbstractGameAction;
 import com.megacrit.cardcrawl.cards.AbstractCard;
 import com.megacrit.cardcrawl.core.Settings;
@@ -8,6 +9,7 @@ import com.megacrit.cardcrawl.dungeons.AbstractDungeon;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 public class SelectCardsInHandAction extends AbstractGameAction {
@@ -17,6 +19,7 @@ public class SelectCardsInHandAction extends AbstractGameAction {
     private boolean anyNumber, canPickZero, forTransform, forUpgrade;
     private ArrayList<AbstractCard> hand;
     private ArrayList<AbstractCard> tempHand = new ArrayList<>();
+    private Function<AbstractCard, AbstractCard> customPreviewFunction = null;
 
     /**
     * @param amount - max number of cards player can select
@@ -50,6 +53,20 @@ public class SelectCardsInHandAction extends AbstractGameAction {
         this.predicate = cardFilter;
         this.callback = callback;
         this.hand = AbstractDungeon.player.hand.group;
+    }
+
+    /**
+     * This overload let you provide a custom preview function, allowing it to show other modifiers as well.
+     * Automatically sets the following parameters: forTransform = false, forUpgrade = true
+     * @param customPreviewFunction - How the card is 'converted' in the preview.
+     * Example: if you want to add Retain to a card, it would look like c -> {
+     *   CardModifierManager.addModifier(c, new RetainMod());
+     *   return c;
+     * }
+     */
+    public SelectCardsInHandAction(int amount, String textForSelect, boolean anyNumber, boolean canPickZero, Function<AbstractCard, AbstractCard> customPreviewFunction, Predicate<AbstractCard> cardFilter, Consumer<List<AbstractCard>> callback) {
+        this(amount, textForSelect, anyNumber, canPickZero, false, true, cardFilter, callback);
+        this.customPreviewFunction = customPreviewFunction;
     }
 
     public SelectCardsInHandAction(int amount, String textForSelect, boolean anyNumber, boolean canPickZero, Predicate<AbstractCard> cardFilter, Consumer<List<AbstractCard>> callback) {
@@ -100,6 +117,9 @@ public class SelectCardsInHandAction extends AbstractGameAction {
             // forTransform and forUpgrade only works properly when amount == 1
             boolean effectiveForTransform = forTransform && amount == 1;
             boolean effectiveForUpgrade = forUpgrade && amount == 1;
+            if (effectiveForUpgrade && customPreviewFunction != null) {
+                HandCardSelectCustomPreviewPatch.setCustomPreviewFunction(customPreviewFunction);
+            }
             AbstractDungeon.handCardSelectScreen.open(text, amount, anyNumber, canPickZero, effectiveForTransform, effectiveForUpgrade);
             tickDuration();
             return;
@@ -120,6 +140,7 @@ public class SelectCardsInHandAction extends AbstractGameAction {
         hand.addAll(tempHand);
         AbstractDungeon.player.hand.refreshHandLayout();
         AbstractDungeon.player.hand.applyPowers();
+        HandCardSelectCustomPreviewPatch.setCustomPreviewFunction(null);
         isDone = true;
     }
 }
